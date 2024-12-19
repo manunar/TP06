@@ -1,30 +1,50 @@
 import subprocess
-
 import argparse
 
-
-
 def run_traceroute(target, progressive, output_file):
-    # Détecter le système d'exploitation pour choisir la commande correcte
     command = ['tracert', target]  # Utiliser 'tracert' sur Windows
 
     if progressive:
         # Utiliser subprocess.Popen pour afficher les résultats au fur et à mesure
-        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        for line in process.stdout:
-            print(line.strip())
+        try:
+            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        except FileNotFoundError:
+            print("Erreur : La commande 'tracert' est introuvable. Assurez-vous qu'elle est installée et accessible dans le PATH.")
+            return
+        except Exception as e:
+            print(f"Une erreur est survenue lors de l'exécution de 'tracert': {e}")
+            return
+
+        try:
+            for line in process.stdout:
+                print(line.strip())
+        except Exception as e:
+            print(f"Une erreur est survenue lors de la lecture de la sortie du traceroute : {e}")
     else:
         # Utiliser subprocess.run pour attendre la fin du traceroute et afficher tout à la fois
-        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        try:
+            result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        except FileNotFoundError:
+            print("Erreur : La commande 'tracert' est introuvable. Assurez-vous qu'elle est installée et accessible dans le PATH.")
+            return
+        except Exception as e:
+            print(f"Une erreur est survenue lors de l'exécution de 'tracert': {e}")
+            return
+
         output = result.stdout.strip()
         print(output)
 
         # Si un fichier de sortie est spécifié, enregistrer les résultats dans le fichier
-        # Modification de l'encodage lors de l'ouverture du fichier pour éviter les problèmes d'affichage
         if output_file:
-            with open(output_file, 'w', encoding='utf-8') as file:
-                file.write(output)
-
+            try:
+                with open(output_file, 'w', encoding='utf-8') as file:
+                    file.write(output)
+            except PermissionError:
+                print(f"Erreur : Impossible d'écrire dans le fichier '{output_file}' (Permissions insuffisantes).")
+            except FileNotFoundError:
+                print(f"Erreur : Le chemin spécifié pour le fichier '{output_file}' est invalide.")
+            except Exception as e:
+                print(f"Une erreur est survenue lors de l'écriture du fichier '{output_file}': {e}")
 
 def main():
     # Définir les options du script avec argparse
@@ -38,7 +58,6 @@ def main():
 
     # Exécuter le traceroute avec les options spécifiées
     run_traceroute(args.target, args.progressive, args.output_file)
-
 
 if __name__ == '__main__':
     main()
