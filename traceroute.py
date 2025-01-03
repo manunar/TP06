@@ -1,11 +1,12 @@
 import subprocess
 import argparse
+import re
 
 def run_traceroute(target, progressive, output_file):
     command = ['tracert', target]  # Utiliser 'tracert' sur Windows
+    ip_pattern = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")  # Regex pour capturer les adresses IP
 
     if progressive:
-        # Utiliser subprocess.Popen pour afficher les résultats au fur et à mesure
         try:
             process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         except FileNotFoundError:
@@ -15,13 +16,21 @@ def run_traceroute(target, progressive, output_file):
             print(f"Une erreur est survenue lors de l'exécution de 'tracert': {e}")
             return
 
+        file = open(output_file, 'w', encoding='utf-8') if output_file else None
         try:
             for line in process.stdout:
-                print(line.strip())
+                match = ip_pattern.search(line)
+                if match:
+                    ip = match.group()
+                    print(ip)
+                    if file:
+                        file.write(ip + "\n")
         except Exception as e:
             print(f"Une erreur est survenue lors de la lecture de la sortie du traceroute : {e}")
+        finally:
+            if file:
+                file.close()
     else:
-        # Utiliser subprocess.run pour attendre la fin du traceroute et afficher tout à la fois
         try:
             result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         except FileNotFoundError:
@@ -32,13 +41,13 @@ def run_traceroute(target, progressive, output_file):
             return
 
         output = result.stdout.strip()
-        print(output)
+        ips = ip_pattern.findall(output)
+        print("\n".join(ips))
 
-        # Si un fichier de sortie est spécifié, enregistrer les résultats dans le fichier
         if output_file:
             try:
                 with open(output_file, 'w', encoding='utf-8') as file:
-                    file.write(output)
+                    file.write("\n".join(ips))
             except PermissionError:
                 print(f"Erreur : Impossible d'écrire dans le fichier '{output_file}' (Permissions insuffisantes).")
             except FileNotFoundError:
@@ -49,7 +58,6 @@ def run_traceroute(target, progressive, output_file):
 def main():
     # Définir les options du script avec argparse
     parser = argparse.ArgumentParser(description="Exécuter un traceroute sur une URL ou une adresse IP.")
-
     parser.add_argument('target', help="URL ou adresse IP à tracer.")
     parser.add_argument('-p', '--progressive', action='store_true', help="Afficher les résultats au fur et à mesure.")
     parser.add_argument('-o', '--output-file', type=str, help="Enregistrer les résultats dans un fichier.")
